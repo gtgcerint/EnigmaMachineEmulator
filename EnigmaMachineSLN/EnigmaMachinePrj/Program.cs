@@ -49,7 +49,17 @@ namespace EnigmaMachinePrj
 
 
             //Set up all possible options. 
-            var plugs = GenerateCombinations();
+            //Need to limit the possible plug board connections. Accoring to the Enigma manual, there should be up to 13 pairs of plug board cables.
+            List<string> plugElements = GenerateCombinations();
+
+
+
+            var plugs = GetAllCombinations(plugElements.Take(3).ToList());
+            foreach (var plug in plugs)
+                {
+                Console.WriteLine(string.Join(", ", plug));
+                }
+
             char[] rings = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
             char[] grund = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
             string[] elements = { "I", "II", "III" };
@@ -70,20 +80,17 @@ namespace EnigmaMachinePrj
             char[] reflectors = "ABC".ToCharArray();
 
 
-            SingleThread(rings, grund, rotorOrders, reflectors, enc, machine, dec);
+            SingleThread(rings, grund, rotorOrders, reflectors, enc, machine, dec, plugs);
+
             try
                 {
-                MultyThread(rings, grund, rotorOrders, reflectors, enc, dec);
+                MultyThread(rings, grund, rotorOrders, reflectors, enc, dec, plugs);
                 }
-            catch (Exception ex)
+            finally
                 {
                 Console.WriteLine("--ALL DONE--");
                 }
 
-
-
-
-            Console.WriteLine("--ALL DONE--");
             Console.ReadLine();
             }
 
@@ -150,8 +157,26 @@ namespace EnigmaMachinePrj
             Console.WriteLine();
             }
 
+        public static List<List<T>> GetAllCombinations<T>(List<T> list)
+            {
+            List<List<T>> result = new List<List<T>>();
 
-        private static void SingleThread(char[] rings, char[] grund, List<string> rotorOrders, char[] reflectors, string encryptedText, EnigmaMachine machine, string dec)
+            for (long i = 0; i < (1L << list.Count); i++)
+                {
+                result.Add(new List<T>());
+                for (int j = 0; j < list.Count; j++)
+                    {
+                    if ((i & (1L << j)) != 0)
+                        {
+                        result[(int)i].Add(list[j]);
+                        }
+                    }
+                }
+
+            return result;
+            }
+
+        private static void SingleThread(char[] rings, char[] grund, List<string> rotorOrders, char[] reflectors, string encryptedText, EnigmaMachine machine, string dec, List<List<string>> plugs)
             {
 
 
@@ -187,6 +212,8 @@ namespace EnigmaMachinePrj
                                             grundSettings[2] = grunt2;
 
                                             machine.setSettings(ringSettings, grundSettings, rotorOrder, reflector);
+
+                                            machine.clearPlugBoard();                                           
                                             string attempt = machine.runEnigma(encryptedText);
 
                                             if (attempt == dec)
@@ -198,6 +225,30 @@ namespace EnigmaMachinePrj
                                                 Console.WriteLine(attempt);
                                                 Console.WriteLine(stopwatch.ElapsedTicks.ToString());
                                                 Console.ReadLine();
+                                                }
+
+
+                                            foreach (var plugList in plugs)
+                                                {                                                
+                                                foreach (var combo in plugList)
+                                                    {
+                                                    machine.clearPlugBoard();
+                                                    char[] p = combo.ToCharArray();
+                                                    machine.addPlug(p[0], p[1]);
+
+                                                    attempt = machine.runEnigma(encryptedText);
+
+                                                    if (attempt == dec)
+                                                        {
+                                                        stopwatch.Stop();
+                                                        Console.WriteLine("----");
+                                                        Console.WriteLine("----");
+                                                        Console.WriteLine("Found!");
+                                                        Console.WriteLine(attempt);
+                                                        Console.WriteLine(stopwatch.ElapsedTicks.ToString());
+                                                        Console.ReadLine();
+                                                        }
+                                                    }
                                                 }
                                             }
                                         }
@@ -212,7 +263,7 @@ namespace EnigmaMachinePrj
 
             }
 
-        private static void MultyThread(char[] rings, char[] grund, List<string> rotorOrders, char[] reflectors, string encryptedText, string dec)
+        private static void MultyThread(char[] rings, char[] grund, List<string> rotorOrders, char[] reflectors, string encryptedText, string dec, List<List<string>> plugs)
             {
             CancellationTokenSource cts = new CancellationTokenSource();
             CancellationToken token = cts.Token;
@@ -285,14 +336,17 @@ namespace EnigmaMachinePrj
 
         public static List<string> GenerateCombinations()
             {
-            char[] alphabet = "abcdefghijklmnopqrstuvwxyz".ToUpperInvariant().ToCharArray();
+            char[] alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
             List<string> combinations = new List<string>();
 
             foreach (char letter1 in alphabet)
                 {
                 foreach (char letter2 in alphabet)
                     {
-                    combinations.Add(letter1.ToString() + letter2.ToString());
+                    if (letter1 != letter2)
+                        {
+                        combinations.Add(letter1.ToString() + letter2.ToString());
+                        }
                     }
                 }
 

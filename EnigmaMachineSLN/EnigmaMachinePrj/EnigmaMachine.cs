@@ -329,5 +329,10 @@ namespace EnigmaMachinePrj
                 throw new ArgumentException("Invalid character");
                 }
             }
+
+        public void clearPlugBoard()
+            {
+            plugBoard.Clear();
+            }   
         }
     }
