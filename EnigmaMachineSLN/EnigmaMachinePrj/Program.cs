@@ -250,6 +250,7 @@ namespace EnigmaMachinePrj
                                                         }
                                                     }
                                                 }
+                                            
                                             }
                                         }
                                     }
@@ -258,8 +259,6 @@ namespace EnigmaMachinePrj
                         }
                     }
                 }
-
-
 
             }
 
@@ -298,6 +297,7 @@ namespace EnigmaMachinePrj
                                             grundSettings[2] = grunt2;
 
                                             EnigmaMachine machine = new EnigmaMachine();
+                                            machine.clearPlugBoard();
                                             machine.setSettings(ringSettings, grundSettings, rotorOrder, reflector);
                                             string attempt = machine.runEnigma(encryptedText);
 
@@ -317,6 +317,31 @@ namespace EnigmaMachinePrj
                                                 cts.Cancel(); // Request cancellation
                                                 return; // Exit current iteration
                                                 }
+
+                                            Parallel.ForEach(plugs, new ParallelOptions { CancellationToken = token }, (plugList) =>
+                                                {
+                                                    foreach (var combo in plugList)
+                                                        {
+                                                        EnigmaMachine machine = new EnigmaMachine();
+                                                        machine.setSettings(ringSettings, grundSettings, rotorOrder, reflector);
+                                                        machine.clearPlugBoard();
+                                                        char[] p = combo.ToCharArray();
+                                                        machine.addPlug(p[0], p[1]);
+
+                                                        attempt = machine.runEnigma(encryptedText);
+
+                                                        if (attempt == dec)
+                                                            {
+                                                            stopwatch.Stop();
+                                                            Console.WriteLine("----");
+                                                            Console.WriteLine("----");
+                                                            Console.WriteLine("Found!");
+                                                            Console.WriteLine(attempt);
+                                                            Console.WriteLine(stopwatch.ElapsedTicks.ToString());
+                                                            Console.ReadLine();
+                                                            }
+                                                        }
+                                                });
 
                                             // Check for cancellation
                                             token.ThrowIfCancellationRequested();
