@@ -1,13 +1,14 @@
 ﻿using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
 namespace EnigmaMachinePrj
-    {
+{
     internal class Program
-        {
+    {
         static void Main(string[] args)
-            {
+        {
             EnigmaMachine machine = new EnigmaMachine();
             EnigmaSettings eSettings = new EnigmaSettings();
 
@@ -17,10 +18,10 @@ namespace EnigmaMachinePrj
             Console.Write("Enter message to encrypt: ");
             message = Console.ReadLine();
             while (!Regex.IsMatch(message, @"^[a-zA-Z ]+$"))
-                {
+            {
                 Console.Write("Only letters A-Z is allowed, try again: ");
                 message = Console.ReadLine();
-                }
+            }
             message = message.Replace(" ", "").ToUpper();
 
             // Enter settings on machine
@@ -28,10 +29,10 @@ namespace EnigmaMachinePrj
 
             // The plugboard settings
             foreach (string plug in eSettings.plugs)
-                {
+            {
                 char[] p = plug.ToCharArray();
                 machine.addPlug(p[0], p[1]);
-                }
+            }
 
             // Message encrypt
             Console.WriteLine();
@@ -54,59 +55,60 @@ namespace EnigmaMachinePrj
 
 
 
-            var plugs = GetAllCombinations(plugElements.Take(3).ToList());
+            var plugs = GetAllCombinationsLimited(plugElements.ToList());
             foreach (var plug in plugs)
-                {
+            {
                 Console.WriteLine(string.Join(", ", plug));
-                }
+            }
 
             char[] rings = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
             char[] grund = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
             string[] elements = { "I", "II", "III" };
             List<string> rotorOrders = new List<string>();
             foreach (string element1 in elements)
-                {
+            {
                 foreach (string element2 in elements)
-                    {
+                {
                     foreach (string element3 in elements)
-                        {
+                    {
                         if (element1 != element2 && element2 != element3 && element1 != element3)
-                            {
+                        {
                             rotorOrders.Add(element1 + "-" + element2 + "-" + element3);
-                            }
                         }
                     }
                 }
+            }
+
             char[] reflectors = "ABC".ToCharArray();
 
 
             SingleThread(rings, grund, rotorOrders, reflectors, enc, machine, dec, plugs);
 
             try
-                {
+            {
                 MultyThread(rings, grund, rotorOrders, reflectors, enc, dec, plugs);
-                }
+            }
             finally
-                {
+            {
                 Console.WriteLine("--ALL DONE--");
-                }
-
-            Console.ReadLine();
             }
 
+            Console.ReadLine();
+        }
+
         private static void querySettings(EnigmaSettings e)
-            {
+        {
             string r;
             Console.WriteLine("Enigma Machine Emulator\n");
             Console.Write("Do you want to: [1] Specify settings [2] Use default settings? (Default: [2]): ");
             r = Console.ReadLine();
             while (r != "1" && r != "2" && r != "")
-                {
+            {
                 Console.Write("Invalid input, enter 1, 2 or 3 ");
                 r = Console.ReadLine();
-                }
+            }
             if (r == "1")
-                {
+            {
                 Console.Write("Enter the ring settings (Ex. AAA, MCK, Default: AAA): ");
                 r = Console.ReadLine();
                 if (r == "")
@@ -140,60 +142,112 @@ namespace EnigmaMachinePrj
                 if (r == "")
                     e.plugs.Clear();
                 else
-                    {
+                {
                     string[] plugs = r.Split(' ');
                     foreach (string s in plugs)
-                        {
+                    {
                         e.plugs.Add(s);
-                        }
                     }
-
                 }
+
+            }
             else if (r == "2" || r == "")
-                {
+            {
                 e.setDefault();
-                }
-
-            Console.WriteLine();
             }
 
+            Console.WriteLine();
+        }
+
         public static List<List<T>> GetAllCombinations<T>(List<T> list)
-            {
+        {
             List<List<T>> result = new List<List<T>>();
 
             for (long i = 0; i < (1L << list.Count); i++)
-                {
+            {
                 result.Add(new List<T>());
                 for (int j = 0; j < list.Count; j++)
-                    {
+                {
                     if ((i & (1L << j)) != 0)
-                        {
+                    {
                         result[(int)i].Add(list[j]);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        public static List<List<string>> GetAllCombinationsLimited(List<string> list)
+        {
+            List<List<string>> result = new List<List<string>>();
+            int count = list.Count;
+            long target = 1L << count;
+
+            for (long i = 0; i < target; i++)
+            {
+                List<string> subset = new List<string>();
+                HashSet<char> usedChars = new HashSet<char>();
+                bool validSubset = true;
+
+                for (int j = 0; j < count; j++)
+                {
+                    if ((i & (1L << j)) != 0)
+                    {
+                        string combination = list[j];
+                        foreach (char c in combination)
+                        {
+                            if (usedChars.Contains(c))
+                            {
+                                validSubset = false;
+                                break;
+                            }
+                            else
+                            {
+                                usedChars.Add(c);
+                            }
+                        }
+
+                        if (validSubset)
+                        {
+                            subset.Add(combination);
+                        }
+                        else
+                        {
+                            break;
                         }
                     }
                 }
 
-            return result;
+                if (validSubset && subset.Count == 13)
+                {
+                    result.Add(subset);
+                }
             }
 
+            return result;
+        }
+
+
+
         private static void SingleThread(char[] rings, char[] grund, List<string> rotorOrders, char[] reflectors, string encryptedText, EnigmaMachine machine, string dec, List<List<string>> plugs)
-            {
+        {
 
 
             System.Diagnostics.Stopwatch stopwatch = new System.Diagnostics.Stopwatch();
             stopwatch.Start();
 
             foreach (var reflector in reflectors)
-                {
+            {
                 foreach (var rotorOrder in rotorOrders)
-                    {
+                {
                     char[] ringSettings = new char[3];
                     foreach (var ring0 in rings)
-                        {
+                    {
                         foreach (var ring1 in rings)
-                            {
+                        {
                             foreach (var ring2 in rings)
-                                {
+                            {
                                 ringSettings[0] = ring0;
                                 ringSettings[1] = ring1;
                                 ringSettings[2] = ring2;
@@ -201,11 +255,11 @@ namespace EnigmaMachinePrj
 
                                 char[] grundSettings = new char[3];
                                 foreach (var grunt0 in grund)
-                                    {
+                                {
                                     foreach (var grunt1 in grund)
-                                        {
+                                    {
                                         foreach (var grunt2 in grund)
-                                            {
+                                        {
 
                                             grundSettings[0] = grunt0;
                                             grundSettings[1] = grunt1;
@@ -213,11 +267,11 @@ namespace EnigmaMachinePrj
 
                                             machine.setSettings(ringSettings, grundSettings, rotorOrder, reflector);
 
-                                            machine.clearPlugBoard();                                           
+                                            machine.clearPlugBoard();
                                             string attempt = machine.runEnigma(encryptedText);
 
                                             if (attempt == dec)
-                                                {
+                                            {
                                                 stopwatch.Stop();
                                                 Console.WriteLine("----");
                                                 Console.WriteLine("----");
@@ -225,13 +279,13 @@ namespace EnigmaMachinePrj
                                                 Console.WriteLine(attempt);
                                                 Console.WriteLine(stopwatch.ElapsedTicks.ToString());
                                                 Console.ReadLine();
-                                                }
+                                            }
 
 
                                             foreach (var plugList in plugs)
-                                                {                                                
+                                            {
                                                 foreach (var combo in plugList)
-                                                    {
+                                                {
                                                     machine.clearPlugBoard();
                                                     char[] p = combo.ToCharArray();
                                                     machine.addPlug(p[0], p[1]);
@@ -239,7 +293,7 @@ namespace EnigmaMachinePrj
                                                     attempt = machine.runEnigma(encryptedText);
 
                                                     if (attempt == dec)
-                                                        {
+                                                    {
                                                         stopwatch.Stop();
                                                         Console.WriteLine("----");
                                                         Console.WriteLine("----");
@@ -247,11 +301,10 @@ namespace EnigmaMachinePrj
                                                         Console.WriteLine(attempt);
                                                         Console.WriteLine(stopwatch.ElapsedTicks.ToString());
                                                         Console.ReadLine();
-                                                        }
                                                     }
                                                 }
-                                            
                                             }
+
                                         }
                                     }
                                 }
@@ -259,11 +312,12 @@ namespace EnigmaMachinePrj
                         }
                     }
                 }
-
             }
 
+        }
+
         private static void MultyThread(char[] rings, char[] grund, List<string> rotorOrders, char[] reflectors, string encryptedText, string dec, List<List<string>> plugs)
-            {
+        {
             CancellationTokenSource cts = new CancellationTokenSource();
             CancellationToken token = cts.Token;
 
@@ -273,14 +327,14 @@ namespace EnigmaMachinePrj
             Parallel.ForEach(reflectors, new ParallelOptions { CancellationToken = token }, (reflector) =>
             {
                 foreach (var rotorOrder in rotorOrders)
-                    {
+                {
                     char[] ringSettings = new char[3];
                     Parallel.ForEach(rings, new ParallelOptions { CancellationToken = token }, (ring0) =>
                     {
                         foreach (var ring1 in rings)
-                            {
+                        {
                             foreach (var ring2 in rings)
-                                {
+                            {
                                 ringSettings[0] = ring0;
                                 ringSettings[1] = ring1;
                                 ringSettings[2] = ring2;
@@ -289,9 +343,9 @@ namespace EnigmaMachinePrj
                                 Parallel.ForEach(grund, new ParallelOptions { CancellationToken = token }, (grunt0) =>
                                 {
                                     foreach (var grunt1 in grund)
-                                        {
+                                    {
                                         foreach (var grunt2 in grund)
-                                            {
+                                        {
                                             grundSettings[0] = grunt0;
                                             grundSettings[1] = grunt1;
                                             grundSettings[2] = grunt2;
@@ -302,7 +356,7 @@ namespace EnigmaMachinePrj
                                             string attempt = machine.runEnigma(encryptedText);
 
                                             if (attempt == dec)
-                                                {
+                                            {
                                                 stopwatch.Stop();
                                                 Console.WriteLine("----");
                                                 Console.WriteLine("Settings:");
@@ -316,12 +370,18 @@ namespace EnigmaMachinePrj
                                                 Console.WriteLine((stopwatch.ElapsedTicks / Stopwatch.Frequency).ToString());
                                                 cts.Cancel(); // Request cancellation
                                                 return; // Exit current iteration
-                                                }
+                                            }
+
+                                            //TODO: Use the span to improve performance.
+                                            var asSpanPlugs = CollectionsMarshal.AsSpan(plugs);
+
+
+
 
                                             Parallel.ForEach(plugs, new ParallelOptions { CancellationToken = token }, (plugList) =>
                                                 {
                                                     foreach (var combo in plugList)
-                                                        {
+                                                    {
                                                         EnigmaMachine machine = new EnigmaMachine();
                                                         machine.setSettings(ringSettings, grundSettings, rotorOrder, reflector);
                                                         machine.clearPlugBoard();
@@ -331,7 +391,7 @@ namespace EnigmaMachinePrj
                                                         attempt = machine.runEnigma(encryptedText);
 
                                                         if (attempt == dec)
-                                                            {
+                                                        {
                                                             stopwatch.Stop();
                                                             Console.WriteLine("----");
                                                             Console.WriteLine("----");
@@ -339,48 +399,69 @@ namespace EnigmaMachinePrj
                                                             Console.WriteLine(attempt);
                                                             Console.WriteLine(stopwatch.ElapsedTicks.ToString());
                                                             Console.ReadLine();
-                                                            }
                                                         }
+                                                    }
                                                 });
 
                                             // Check for cancellation
                                             token.ThrowIfCancellationRequested();
-                                            }
                                         }
+                                    }
                                 });
-                                }
                             }
+                        }
                     });
-                    }
+                }
             });
 
 
 
+        }
+
+        public static List<string> GenerateCombinationsLimited()
+        {
+            List<string> combinations = new List<string>();
+            List<char> alphabet = new List<char>("ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray());
+            Random rand = new Random();
+
+            while (combinations.Count < 13 && alphabet.Count >= 2)
+            {
+                int index1 = rand.Next(alphabet.Count);
+                char letter1 = alphabet[index1];
+                alphabet.RemoveAt(index1);
+
+                int index2 = rand.Next(alphabet.Count);
+                char letter2 = alphabet[index2];
+                alphabet.RemoveAt(index2);
+
+                combinations.Add(letter1.ToString() + letter2.ToString());
             }
 
+            return combinations;
+        }
 
         public static List<string> GenerateCombinations()
-            {
+        {
             char[] alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".ToCharArray();
             List<string> combinations = new List<string>();
 
             foreach (char letter1 in alphabet)
-                {
+            {
                 foreach (char letter2 in alphabet)
-                    {
+                {
                     if (letter1 != letter2)
-                        {
+                    {
                         combinations.Add(letter1.ToString() + letter2.ToString());
-                        }
                     }
                 }
+            }
 
             return combinations;
-            }
+        }
 
         // Short class to hold the settings
         private class EnigmaSettings
-            {
+        {
             public char[] rings { get; set; }
             public char[] grund { get; set; }
             public string order { get; set; }
@@ -388,21 +469,21 @@ namespace EnigmaMachinePrj
             public List<string> plugs = new List<string>();
 
             public EnigmaSettings()
-                {
+            {
                 setDefault();
-                }
+            }
 
             public void setDefault()
-                {
+            {
                 rings = new char[] { 'A', 'A', 'A' };
                 grund = new char[] { 'A', 'A', 'A' };
                 order = "I-II-III";
                 reflector = 'B';
                 plugs.Clear();
-                }
             }
-
-
         }
 
+
     }
+
+}
